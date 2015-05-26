@@ -1,0 +1,18 @@
+--- mozjpeg-3.1/configure.ac.omv~	2015-05-26 23:10:05.727498457 +0200
++++ mozjpeg-3.1/configure.ac	2015-05-26 23:11:15.623069677 +0200
+@@ -93,10 +93,11 @@ fi
+ # Checks for libraries.
+ AC_CHECK_LIB([m],[pow])
+ 
+-PKG_CHECK_MODULES([libpng], [libpng], [HAVE_LIBPNG=1], [
+-  PKG_CHECK_MODULES([libpng], [libpng12], [HAVE_LIBPNG=1], [HAVE_LIBPNG=0])
+-])
+-AM_CONDITIONAL([HAVE_LIBPNG], [test "$HAVE_LIBPNG" -eq 1])
++#PKG_CHECK_MODULES([libpng], [libpng], [HAVE_LIBPNG=1], [
++#  PKG_CHECK_MODULES([libpng], [libpng12], [HAVE_LIBPNG=1], [HAVE_LIBPNG=0])
++#])
++#AM_CONDITIONAL([HAVE_LIBPNG], [test "$HAVE_LIBPNG" -eq 1])
++AM_CONDITIONAL([HAVE_LIBPNG], [0])
+ 
+ # Checks for header files.
+ AC_HEADER_STDC
