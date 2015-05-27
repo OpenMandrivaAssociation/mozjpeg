@@ -29,6 +29,7 @@ Patch0:		jpeg-6b-c++fixes.patch
 Patch1:		mozjpeg-3.1-no-png-for-uclibc.patch
 
 BuildRequires:	libtool >= 1.4
+BuildRequires:	pkgconfig(libpng)
 %ifarch %{ix86} x86_64
 BuildRequires:	nasm
 %endif
