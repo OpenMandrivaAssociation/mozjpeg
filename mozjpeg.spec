@@ -14,7 +14,7 @@ Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Epoch:		1
 Version:	3.1
-Release:	1
+Release:	2
 License:	wxWidgets Library License
 Group:		System/Libraries
 Url:		https://github.com/mozilla/mozjpeg
@@ -86,6 +86,20 @@ Group:		System/Libraries
 %description -n uclibc-%{turbo}
 This package contains the library needed to run programs dynamically
 linked with libturbojpeg.
+
+%package -n uclibc-%{devname}
+Summary:	Development tools for programs which will use the libjpeg library
+Group:		Development/C
+Requires:	uclibc-%{libname} = %{EVRD}
+Requires:	uclibc-%{turbo} = %{EVRD}
+Requires:	%{devname} = %{EVRD}
+Provides:	uclibc-jpeg-devel = %{EVRD}
+Conflicts:	%{devname} < 3.1-2
+
+%description -n	uclibc-%{devname}
+The libjpeg-turbo devel package includes the header files necessary for 
+developing programs which will manipulate JPEG files using the
+libjpeg library.
 %endif
 
 %package -n %{devname}
@@ -244,16 +258,16 @@ rm -f %{buildroot}%{_docdir}/*
 
 %files -n uclibc-%{turbo}
 %{uclibc_root}%{_libdir}/libturbojpeg.so.%{majorturbo}*
+
+%files -n uclibc-%{devname}
+%{uclibc_root}%{_libdir}/libjpeg.so
+%{uclibc_root}%{_libdir}/libturbojpeg.so
 %endif
 
 %files -n %{devname}
 %doc coderules.txt example.c jconfig.txt libjpeg.txt structure.txt
 %{_libdir}/libjpeg.so
 %{_libdir}/libturbojpeg.so
-%if %{with uclibc}
-%{uclibc_root}%{_libdir}/libjpeg.so
-%{uclibc_root}%{_libdir}/libturbojpeg.so
-%endif
 %{_includedir}/*.h
 
 %files -n %{static}
