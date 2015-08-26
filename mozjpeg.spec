@@ -8,13 +8,13 @@
 %define major62 62
 %define libname62 %mklibname jpeg %{major62}
 
-%bcond_without uclibc
+%bcond_with uclibc
 
 Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Epoch:		1
 Version:	3.1
-Release:	3
+Release:	4
 License:	wxWidgets Library License
 Group:		System/Libraries
 Url:		https://github.com/mozilla/mozjpeg
