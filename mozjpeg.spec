@@ -14,7 +14,7 @@ Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Epoch:		1
 Version:	3.1
-Release:	4
+Release:	5
 License:	wxWidgets Library License
 Group:		System/Libraries
 Url:		https://github.com/mozilla/mozjpeg
@@ -243,7 +243,6 @@ install -m644 jpegint.h -D %{buildroot}%{_includedir}/jpegint.h
 rm -f %{buildroot}%{_docdir}/*
 
 %files -n %{libname}
-%doc change.log ChangeLog.txt README README-turbo.txt
 %{_libdir}/libjpeg.so.%{major}*
 
 %files -n %{libname62}
@@ -266,6 +265,7 @@ rm -f %{buildroot}%{_docdir}/*
 
 %files -n %{devname}
 %doc coderules.txt example.c jconfig.txt libjpeg.txt structure.txt
+%doc change.log ChangeLog.txt README README-turbo.txt
 %{_libdir}/libjpeg.so
 %{_libdir}/libturbojpeg.so
 %{_includedir}/*.h
