@@ -12,7 +12,7 @@ Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Epoch:		1
 Version:	3.1
-Release:	6
+Release:	7
 License:	wxWidgets Library License
 Group:		System/Libraries
 Url:		https://github.com/mozilla/mozjpeg
@@ -130,6 +130,10 @@ autoconf
 %build
 %global optflags %{optflags} -Ofast -funroll-loops
 
+# compile with gcc as otherwise causes segfaults in firefox with clang
+export CC=gcc
+export CXX=g++
+
 # fix me on RPM
 for i in $(find . -name config.guess -o -name config.sub) ; do
     [ -f /usr/share/libtool/config/$(basename $i) ] && /bin/rm -f $i && /bin/cp -fv /usr/share/libtool/config//$(basename $i) $i ;
@@ -157,7 +161,7 @@ pushd jpeg62
 %make
 popd
 
-%{__cc} %{optflags} %{ldflags} -o jpegexiforient jpegexiforient.c
+gcc %{optflags} %{ldflags} -o jpegexiforient jpegexiforient.c
 
 #%check
 #make -C jpeg8 test
