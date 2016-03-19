@@ -8,13 +8,11 @@
 %define major62 62
 %define libname62 %mklibname jpeg %{major62}
 
-%bcond_with uclibc
-
 Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Epoch:		1
 Version:	3.1
-Release:	5
+Release:	6
 License:	wxWidgets Library License
 Group:		System/Libraries
 Url:		https://github.com/mozilla/mozjpeg
@@ -26,15 +24,11 @@ Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}.tar.gz
 Source2:	http://jpegclub.org/jpegexiforient.c
 Source3:	http://jpegclub.org/exifautotran.txt
 Patch0:		jpeg-6b-c++fixes.patch
-Patch1:		mozjpeg-3.1-no-png-for-uclibc.patch
 
 BuildRequires:	libtool >= 1.4
 BuildRequires:	pkgconfig(libpng)
 %ifarch %{ix86} x86_64
 BuildRequires:	nasm
-%endif
-%if %{with uclibc}
-BuildRequires:	uClibc-devel >= 0.9.33.2-9
 %endif
 
 %description
@@ -52,16 +46,6 @@ Group:		System/Libraries
 This package contains the library needed to run programs dynamically
 linked with libjpeg.
 
-%if %{with uclibc}
-%package -n uclibc-%{libname}
-Summary:	A library for manipulating JPEG image format files (uClibc build)
-Group:		System/Libraries
-
-%description -n uclibc-%{libname}
-This package contains the library needed to run programs dynamically
-linked with libjpeg.
-%endif
-
 %package -n %{libname62}
 Summary:	A library for manipulating JPEG image format files
 Group:		System/Libraries
@@ -77,30 +61,6 @@ Group:		System/Libraries
 %description -n %{turbo}
 This package contains the library needed to run programs dynamically
 linked with libturbojpeg.
-
-%if %{with uclibc}
-%package -n uclibc-%{turbo}
-Summary:	TurboJPEG library (uClibc build)
-Group:		System/Libraries
-
-%description -n uclibc-%{turbo}
-This package contains the library needed to run programs dynamically
-linked with libturbojpeg.
-
-%package -n uclibc-%{devname}
-Summary:	Development tools for programs which will use the libjpeg library
-Group:		Development/C
-Requires:	uclibc-%{libname} = %{EVRD}
-Requires:	uclibc-%{turbo} = %{EVRD}
-Requires:	%{devname} = %{EVRD}
-Provides:	uclibc-jpeg-devel = %{EVRD}
-Conflicts:	%{devname} < 3.1-2
-
-%description -n	uclibc-%{devname}
-The libjpeg-turbo devel package includes the header files necessary for 
-developing programs which will manipulate JPEG files using the
-libjpeg library.
-%endif
 
 %package -n %{devname}
 Summary:	Development tools for programs which will use the libjpeg library
@@ -126,12 +86,12 @@ Provides:	jpeg-static-devel = %{EVRD}
 Conflicts:	jpeg6-static-devel
 Obsoletes:	%{mklibname jpeg 62 -d -s} < 6b-45
 Obsoletes:	%{mklibname jpeg 7 -d -s} < 7-3
- 
+
 %description -n %{static}
 The libjpeg static devel package includes the static libraries
 necessary for developing programs which will manipulate JPEG files using
 the libjpeg library.
- 
+
 %package -n jpeg-progs
 Summary:	Programs for manipulating JPEG format image files
 Group:		Graphics
@@ -154,9 +114,7 @@ have orientation markings in the EXIF data.
 %prep
 %setup -q
 %patch0 -p0
-%if %{with uclibc}
-%patch1 -p1 -b .no-libpng~
-%endif
+
 # Fix perms
 chmod -x README-turbo.txt
 
@@ -170,36 +128,19 @@ automake -a
 autoconf
 
 %build
+%global optflags %{optflags} -Ofast -funroll-loops
+
 # fix me on RPM
 for i in $(find . -name config.guess -o -name config.sub) ; do
-           [ -f /usr/share/libtool/config/$(basename $i) ] && /bin/rm -f $i && /bin/cp -fv /usr/share/libtool/config//$(basename $i) $i ;
+    [ -f /usr/share/libtool/config/$(basename $i) ] && /bin/rm -f $i && /bin/cp -fv /usr/share/libtool/config//$(basename $i) $i ;
 done;
 # and remove me
 
 CONFIGURE_TOP="$PWD"
 
-%if %{with uclibc}
-mkdir -p uclibc
-pushd uclibc
-%uclibc_configure \
-	CFLAGS="%{uclibc_cflags} -ffast-math" \
-	--enable-shared \
-	--disable-static \
-	--with-jpeg8
-%make
-popd
-
-patch -p1 -R <%{PATCH1}
-autoheader
-libtoolize --force
-aclocal
-automake -a
-autoconf
-%endif
-
 mkdir -p jpeg8
 pushd jpeg8
-CFLAGS="%{optflags} -Ofast -funroll-loops" \
+
 %configure \
 	--enable-shared \
 	--enable-static \
@@ -209,27 +150,20 @@ popd
 
 mkdir -p jpeg62
 pushd jpeg62
-CFLAGS="%{optflags} -Ofast -funroll-loops" \
+
 %configure \
 	--enable-shared \
 	--disable-static
 %make
 popd
 
-%__cc %{optflags} %{ldflags} -o jpegexiforient jpegexiforient.c
+%{__cc} %{optflags} %{ldflags} -o jpegexiforient jpegexiforient.c
 
 #%check
 #make -C jpeg8 test
 #make -C jpeg62 test
-#%if %{with uclibc}
-#make -C uclibc test
-#%endif
 
 %install
-%if %{with uclibc}
-make install-libLTLIBRARIES DESTDIR=%{buildroot} -C uclibc
-%endif
-
 make install-libLTLIBRARIES DESTDIR=%{buildroot} -C jpeg62
 %makeinstall_std -C jpeg8
 
@@ -250,18 +184,6 @@ rm -f %{buildroot}%{_docdir}/*
 
 %files -n %{turbo}
 %{_libdir}/libturbojpeg.so.%{majorturbo}*
-
-%if %{with uclibc}
-%files -n uclibc-%{libname}
-%{uclibc_root}%{_libdir}/libjpeg.so.%{major}*
-
-%files -n uclibc-%{turbo}
-%{uclibc_root}%{_libdir}/libturbojpeg.so.%{majorturbo}*
-
-%files -n uclibc-%{devname}
-%{uclibc_root}%{_libdir}/libjpeg.so
-%{uclibc_root}%{_libdir}/libturbojpeg.so
-%endif
 
 %files -n %{devname}
 %doc coderules.txt example.c jconfig.txt libjpeg.txt structure.txt
