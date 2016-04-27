@@ -12,7 +12,7 @@ Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Epoch:		1
 Version:	3.1
-Release:	7
+Release:	8
 License:	wxWidgets Library License
 Group:		System/Libraries
 Url:		https://github.com/mozilla/mozjpeg
@@ -24,7 +24,8 @@ Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}.tar.gz
 Source2:	http://jpegclub.org/jpegexiforient.c
 Source3:	http://jpegclub.org/exifautotran.txt
 Patch0:		jpeg-6b-c++fixes.patch
-
+# (tpg) fix crashes https://github.com/mozilla/mozjpeg/issues/202
+Patch1:		0000-Fix-x86-64-ABI-conformance-issue-in-SIMD-code.patch
 BuildRequires:	libtool >= 1.4
 BuildRequires:	pkgconfig(libpng)
 %ifarch %{ix86} x86_64
@@ -114,6 +115,7 @@ have orientation markings in the EXIF data.
 %prep
 %setup -q
 %patch0 -p0
+%patch1 -p1
 
 # Fix perms
 chmod -x README-turbo.txt
@@ -129,10 +131,6 @@ autoconf
 
 %build
 %global optflags %{optflags} -Ofast -funroll-loops
-
-# compile with gcc as otherwise causes segfaults in firefox with clang
-export CC=gcc
-export CXX=g++
 
 # fix me on RPM
 for i in $(find . -name config.guess -o -name config.sub) ; do
