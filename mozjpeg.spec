@@ -4,6 +4,7 @@
 %define devname %mklibname -d jpeg
 %define static %mklibname -s -d jpeg
 %define turbo %mklibname turbojpeg %{majorturbo}
+%define beta pre
 
 %define major62 62
 %define libname62 %mklibname jpeg %{major62}
@@ -11,12 +12,17 @@
 Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Epoch:		1
-Version:	3.1
+Version:	3.2
+%if "%{beta}" != ""
+Release:	0.%{beta}.1
+Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
+%else
 Release:	8
+Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}.tar.gz
+%endif
 License:	wxWidgets Library License
 Group:		System/Libraries
 Url:		https://github.com/mozilla/mozjpeg
-Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}.tar.gz
 # These two allow automatic lossless rotation of JPEG images from a digital
 # camera which have orientation markings in the EXIF data. After rotation
 # the orientation markings are reset to avoid duplicate rotation when
@@ -24,8 +30,6 @@ Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}.tar.gz
 Source2:	http://jpegclub.org/jpegexiforient.c
 Source3:	http://jpegclub.org/exifautotran.txt
 Patch0:		jpeg-6b-c++fixes.patch
-# (tpg) fix crashes https://github.com/mozilla/mozjpeg/issues/202
-Patch1:		0000-Fix-x86-64-ABI-conformance-issue-in-SIMD-code.patch
 BuildRequires:	libtool >= 1.4
 BuildRequires:	pkgconfig(libpng)
 %ifarch %{ix86} x86_64
@@ -113,9 +117,12 @@ automatic lossless rotation of JPEG images from a digital camera which
 have orientation markings in the EXIF data.
 
 %prep
+%if "%{beta}" != ""
+%setup -qn %{name}-%{version}-%{beta}
+%else
 %setup -q
+%endif
 %patch0 -p0
-%patch1 -p1
 
 # Fix perms
 chmod -x README-turbo.txt
@@ -130,7 +137,7 @@ automake -a
 autoconf
 
 %build
-%global optflags %{optflags} -Ofast -funroll-loops
+%global optflags %{optflags} -Ofast -funroll-loops -fuse-ld=gold
 
 # fix me on RPM
 for i in $(find . -name config.guess -o -name config.sub) ; do
@@ -176,7 +183,7 @@ install -m755 exifautotran -D %{buildroot}%{_bindir}/exifautotran
 install -m644 jpegint.h -D %{buildroot}%{_includedir}/jpegint.h
 
 # cleanup
-rm -f %{buildroot}%{_docdir}/*
+rm -rf %{buildroot}%{_docdir}/*
 
 %files -n %{libname}
 %{_libdir}/libjpeg.so.%{major}*
@@ -188,17 +195,15 @@ rm -f %{buildroot}%{_docdir}/*
 %{_libdir}/libturbojpeg.so.%{majorturbo}*
 
 %files -n %{devname}
-%doc coderules.txt example.c jconfig.txt libjpeg.txt structure.txt
-%doc change.log ChangeLog.txt README README-turbo.txt
 %{_libdir}/libjpeg.so
 %{_libdir}/libturbojpeg.so
 %{_includedir}/*.h
+%{_libdir}/pkgconfig/*.pc
 
 %files -n %{static}
 %{_libdir}/libjpeg.a
 %{_libdir}/libturbojpeg.a
 
 %files -n jpeg-progs
-%doc usage.txt wizard.txt
 %{_bindir}/*
 %{_mandir}/man1/*
