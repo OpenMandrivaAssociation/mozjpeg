@@ -4,7 +4,7 @@
 %define devname %mklibname -d jpeg
 %define static %mklibname -s -d jpeg
 %define turbo %mklibname turbojpeg %{majorturbo}
-%define beta pre
+%define beta %nil
 
 %define major62 62
 %define libname62 %mklibname jpeg %{major62}
@@ -18,7 +18,7 @@ Release:	0.%{beta}.1
 Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
 %else
 Release:	8
-Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}.tar.gz
+Source0:	https://github.com/mozilla/mozjpeg/archive/%{name}-%{version}.tar.gz
 %endif
 License:	wxWidgets Library License
 Group:		System/Libraries
