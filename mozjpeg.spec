@@ -12,7 +12,7 @@
 Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Epoch:		1
-Version:	3.2
+Version:	3.3.1
 %if "%{beta}" != ""
 Release:	0.%{beta}.1
 Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
