@@ -32,7 +32,7 @@ Source3:	http://jpegclub.org/exifautotran.txt
 Patch0:		jpeg-6b-c++fixes.patch
 BuildRequires:	libtool >= 1.4
 BuildRequires:	pkgconfig(libpng)
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} x86_64 znver1
 BuildRequires:	nasm
 %endif
 
