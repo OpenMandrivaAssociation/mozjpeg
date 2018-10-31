@@ -17,7 +17,7 @@ Version:	3.3.2
 Release:	0.%{beta}.1
 Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
 %else
-Release:	1
+Release:	2
 Source0:	https://github.com/mozilla/mozjpeg/archive/%{name}-%{version}.tar.gz
 %endif
 License:	wxWidgets Library License
