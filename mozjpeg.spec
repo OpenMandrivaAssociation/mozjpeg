@@ -4,10 +4,12 @@
 %define devname %mklibname -d jpeg
 %define static %mklibname -s -d jpeg
 %define turbo %mklibname turbojpeg %{majorturbo}
-%define beta 20180802
+%define beta 20181202
 
 %define major62 62
 %define libname62 %mklibname jpeg %{major62}
+
+%bcond_without java
 
 Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
@@ -17,7 +19,7 @@ Version:	3.3.2
 Release:	0.%{beta}.1
 Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
 %else
-Release:	2
+Release:	1
 Source0:	https://github.com/mozilla/mozjpeg/archive/%{name}-%{version}.tar.gz
 %endif
 License:	wxWidgets Library License
@@ -30,9 +32,14 @@ Url:		https://github.com/mozilla/mozjpeg
 Source2:	http://jpegclub.org/jpegexiforient.c
 Source3:	http://jpegclub.org/exifautotran.txt
 Patch0:		jpeg-6b-c++fixes.patch
-BuildRequires:	libtool >= 1.4
+Patch1:		merge-libjpeg-turbo-2.0.1.patch
+Patch2:		mozjpeg-libm-linkage.patch
 BuildRequires:	pkgconfig(libpng)
-%ifarch %{ix86} x86_64 znver1
+BuildRequires:	cmake ninja
+%if %{with java}
+BuildRequires:	java-devel
+%endif
+%ifarch %{ix86} %{x86_64}
 BuildRequires:	nasm
 %endif
 
@@ -116,74 +123,68 @@ Wrjpgcom inserts text comments into a JPEG file. Jpegexiforient allow
 automatic lossless rotation of JPEG images from a digital camera which
 have orientation markings in the EXIF data.
 
+%package -n java-turbojpeg
+Summary: Java bindings to the turbojpeg library
+Requires: %{turbo} = %{EVRD}
+Group: Development/Java
+
+%description -n java-turbojpeg
+Java bindings to the turbojpeg library
+
 %prep
 %if "%{beta}" != ""
-%setup -qn %{name}-%{version}-%{beta}
+%autosetup -p1 -n %{name}-%{version}-%{beta}
 %else
-%setup -q
+%autosetup -p1
 %endif
-%patch0 -p0
-
-# Fix perms
-chmod -x README-turbo.txt
-
 cp %{SOURCE2} jpegexiforient.c
 cp %{SOURCE3} exifautotran
 
-autoheader
-libtoolize --force
-aclocal
-automake -a
-autoconf
-
 %build
-%global optflags %{optflags} -Ofast -funroll-loops -fuse-ld=gold
-
-# fix me on RPM
-for i in $(find . -name config.guess -o -name config.sub) ; do
-    [ -f /usr/share/libtool/config/$(basename $i) ] && /bin/rm -f $i && /bin/cp -fv /usr/share/libtool/config//$(basename $i) $i ;
-done;
-# and remove me
-
-CONFIGURE_TOP="$PWD"
+%global optflags %{optflags} -Ofast -funroll-loops
 
 mkdir -p jpeg8
 pushd jpeg8
-
-%configure \
-	--enable-shared \
-	--enable-static \
-	--with-jpeg8
-%make
+%cmake \
+%if %{with java}
+	-DWITH_JAVA:BOOL=ON \
+%endif
+	-DWITH_JPEG7:BOOL=ON \
+	-DWITH_JPEG8:BOOL=ON \
+	-G Ninja \
+	../..
+%ninja_build
 popd
 
 mkdir -p jpeg62
 pushd jpeg62
-
-%configure \
-	--enable-shared \
-	--disable-static
-%make
+%cmake \
+	-DWITH_JPEG7:BOOL=OFF \
+	-DWITH_JPEG8:BOOL=OFF \
+	-G Ninja \
+	../..
+%ninja_build
 popd
 
-gcc %{optflags} %{ldflags} -o jpegexiforient jpegexiforient.c
+%{__cc} %{optflags} %{ldflags} -o jpegexiforient jpegexiforient.c
 
 #%check
 #make -C jpeg8 test
 #make -C jpeg62 test
 
 %install
-make install-libLTLIBRARIES DESTDIR=%{buildroot} -C jpeg62
-%makeinstall_std -C jpeg8
+cd jpeg62
+%ninja_install -C build
+
+cd ../jpeg8
+%ninja_install -C build
+cd ..
 
 install -m755 jpegexiforient -D %{buildroot}%{_bindir}/jpegexiforient
 install -m755 exifautotran -D %{buildroot}%{_bindir}/exifautotran
 
 #(neoclust) Provide jpegint.h because it is needed by certain software
 install -m644 jpegint.h -D %{buildroot}%{_includedir}/jpegint.h
-
-# cleanup
-rm -rf %{buildroot}%{_docdir}/*
 
 %files -n %{libname}
 %{_libdir}/libjpeg.so.%{major}*
@@ -195,6 +196,7 @@ rm -rf %{buildroot}%{_docdir}/*
 %{_libdir}/libturbojpeg.so.%{majorturbo}*
 
 %files -n %{devname}
+%doc %{_docdir}/mozjpeg
 %{_libdir}/libjpeg.so
 %{_libdir}/libturbojpeg.so
 %{_includedir}/*.h
@@ -207,3 +209,8 @@ rm -rf %{buildroot}%{_docdir}/*
 %files -n jpeg-progs
 %{_bindir}/*
 %{_mandir}/man1/*
+
+%if %{with java}
+%files -n java-turbojpeg
+%{_datadir}/java/turbojpeg.jar
+%endif

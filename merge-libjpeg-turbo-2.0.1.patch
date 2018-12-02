@@ -1,0 +1,566 @@
+diff --git a/BUILDING.md b/BUILDING.md
+index b11ab8b3..5dbafd86 100644
+--- a/BUILDING.md
++++ b/BUILDING.md
+@@ -48,8 +48,9 @@ Build Requirements
+   install the Java Developer Package, which can be downloaded from
+   <http://developer.apple.com/downloads> (Apple ID required.)  For other
+   systems, you can obtain the Oracle Java Development Kit from
+-  <http://www.java.com>.
++  <http://www.oracle.com/technetwork/java/javase/downloads>.
+ 
++  * If using JDK 11 or later, CMake 3.10.x or later must also be used.
+ 
+ ### Windows
+ 
+@@ -83,7 +84,10 @@ Build Requirements
+   appropriate compiler paths automatically set.
+ 
+ - If building the TurboJPEG Java wrapper, JDK 1.5 or later is required.  This
+-  can be downloaded from <http://www.java.com>.
++  can be downloaded from
++  <http://www.oracle.com/technetwork/java/javase/downloads>.
++
++  * If using JDK 11 or later, CMake 3.10.x or later must also be used.
+ 
+ 
+ Out-of-Tree Builds
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ae7ee1b3..f32be6a2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -109,7 +109,9 @@ endif()
+ 
+ include(cmakescripts/GNUInstallDirs.cmake)
+ 
+-set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_FULL_LIBDIR})
++if(ENABLE_SHARED)
++  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_FULL_LIBDIR})
++endif()
+ 
+ macro(report_directory var)
+   if(CMAKE_INSTALL_${var} STREQUAL CMAKE_INSTALL_FULL_${var})
+@@ -1405,10 +1407,10 @@ if(UNIX OR MINGW)
+     ${CMAKE_CURRENT_SOURCE_DIR}/rdjpgcom.1
+     ${CMAKE_CURRENT_SOURCE_DIR}/wrjpgcom.1
+     DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
+-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pkgscripts/libjpeg.pc
+-    ${CMAKE_CURRENT_BINARY_DIR}/pkgscripts/libturbojpeg.pc
+-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+ endif()
++install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pkgscripts/libjpeg.pc
++  ${CMAKE_CURRENT_BINARY_DIR}/pkgscripts/libturbojpeg.pc
++  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+ 
+ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/jconfig.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/jerror.h ${CMAKE_CURRENT_SOURCE_DIR}/jmorecfg.h
+diff --git a/ChangeLog.md b/ChangeLog.md
+index 8f0d11b1..8c529ecd 100644
+--- a/ChangeLog.md
++++ b/ChangeLog.md
+@@ -1,3 +1,33 @@
++2.0.1
++=====
++
++### Significant changes relative to 2.0.0:
++
++1. Fixed a regression introduced with the new CMake-based Un*x build system,
++whereby jconfig.h could cause compiler warnings of the form
++`"HAVE_*_H" redefined` if it was included by downstream Autotools-based
++projects that used `AC_CHECK_HEADERS()` to check for the existence of locale.h,
++stddef.h, or stdlib.h.
++
++2. The `jsimd_quantize_float_dspr2()` and `jsimd_convsamp_float_dspr2()`
++functions in the MIPS DSPr2 SIMD extensions are now disabled at compile time
++if the soft float ABI is enabled.  Those functions use instructions that are
++incompatible with the soft float ABI.
++
++3. Fixed a regression in the SIMD feature detection code, introduced by
++the AVX2 SIMD extensions (2.0 beta1[1]), that caused libjpeg-turbo to crash on
++Windows 7 if Service Pack 1 was not installed.
++
++4. Fixed out-of-bounds read in cjpeg that occurred when attempting to compress
++a specially-crafted malformed color-index (8-bit-per-sample) Targa file in
++which some of the samples (color indices) exceeded the bounds of the Targa
++file's color table.
++
++5. Fixed an issue whereby installing a fully static build of libjpeg-turbo
++(a build in which `CFLAGS` contains `-static` and `ENABLE_SHARED` is `0`) would
++fail with "No valid ELF RPATH or RUNPATH entry exists in the file."
++
++
+ 2.0.0
+ =====
+ 
+diff --git a/java/CMakeLists.txt b/java/CMakeLists.txt
+index b7ee1e4d..578b8162 100644
+--- a/java/CMakeLists.txt
++++ b/java/CMakeLists.txt
+@@ -58,11 +58,21 @@ endif()
+ add_custom_target(javadoc COMMAND
+   javadoc -notimestamp -d ${CMAKE_CURRENT_SOURCE_DIR}/doc -sourcepath ${CMAKE_CURRENT_SOURCE_DIR} org.libjpegturbo.turbojpeg)
+ set(JAVACLASSPATH ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/turbojpeg-java.dir)
+-add_custom_target(javah
+-  COMMAND javah -d ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH} org.libjpegturbo.turbojpeg.TJ
+-  COMMAND javah -d ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH} org.libjpegturbo.turbojpeg.TJCompressor
+-  COMMAND javah -d ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH} org.libjpegturbo.turbojpeg.TJDecompressor
+-  COMMAND javah -d ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH} org.libjpegturbo.turbojpeg.TJTransformer)
++if(Java_VERSION_MAJOR GREATER 9)
++  add_custom_target(javah
++    COMMAND javac -h ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH}
++      -d ${CMAKE_CURRENT_BINARY_DIR}/__unused
++      ${CMAKE_CURRENT_SOURCE_DIR}/org/libjpegturbo/turbojpeg/TJ.java
++      ${CMAKE_CURRENT_SOURCE_DIR}/org/libjpegturbo/turbojpeg/TJCompressor.java
++      ${CMAKE_CURRENT_SOURCE_DIR}/org/libjpegturbo/turbojpeg/TJDecompressor.java
++      ${CMAKE_CURRENT_SOURCE_DIR}/org/libjpegturbo/turbojpeg/TJTransformer.java)
++else()
++  add_custom_target(javah
++    COMMAND javah -d ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH} org.libjpegturbo.turbojpeg.TJ
++    COMMAND javah -d ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH} org.libjpegturbo.turbojpeg.TJCompressor
++    COMMAND javah -d ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH} org.libjpegturbo.turbojpeg.TJDecompressor
++    COMMAND javah -d ${CMAKE_CURRENT_SOURCE_DIR} -classpath ${JAVACLASSPATH} org.libjpegturbo.turbojpeg.TJTransformer)
++endif()
+ 
+ if(NOT DEFINED CMAKE_INSTALL_DEFAULT_JAVADIR)
+   set(CMAKE_INSTALL_DEFAULT_JAVADIR "<CMAKE_INSTALL_DATAROOTDIR>/java")
+diff --git a/jconfig.h.in b/jconfig.h.in
+index 28427548..18a69a48 100644
+--- a/jconfig.h.in
++++ b/jconfig.h.in
+@@ -10,16 +10,16 @@
+ #define LIBJPEG_TURBO_VERSION_NUMBER  @LIBJPEG_TURBO_VERSION_NUMBER@
+ 
+ /* Support arithmetic encoding */
+-#cmakedefine C_ARITH_CODING_SUPPORTED
++#cmakedefine C_ARITH_CODING_SUPPORTED 1
+ 
+ /* Support arithmetic decoding */
+-#cmakedefine D_ARITH_CODING_SUPPORTED
++#cmakedefine D_ARITH_CODING_SUPPORTED 1
+ 
+ /* Support in-memory source/destination managers */
+-#cmakedefine MEM_SRCDST_SUPPORTED
++#cmakedefine MEM_SRCDST_SUPPORTED 1
+ 
+ /* Use accelerated SIMD routines. */
+-#cmakedefine WITH_SIMD
++#cmakedefine WITH_SIMD 1
+ 
+ /*
+  * Define BITS_IN_JSAMPLE as either
+@@ -33,37 +33,37 @@
+ #define BITS_IN_JSAMPLE  @BITS_IN_JSAMPLE@      /* use 8 or 12 */
+ 
+ /* Define to 1 if you have the <locale.h> header file. */
+-#cmakedefine HAVE_LOCALE_H
++#cmakedefine HAVE_LOCALE_H 1
+ 
+ /* Define to 1 if you have the <stddef.h> header file. */
+-#cmakedefine HAVE_STDDEF_H
++#cmakedefine HAVE_STDDEF_H 1
+ 
+ /* Define to 1 if you have the <stdlib.h> header file. */
+-#cmakedefine HAVE_STDLIB_H
++#cmakedefine HAVE_STDLIB_H 1
+ 
+ /* Define if you need to include <sys/types.h> to get size_t. */
+-#cmakedefine NEED_SYS_TYPES_H
++#cmakedefine NEED_SYS_TYPES_H 1
+ 
+ /* Define if you have BSD-like bzero and bcopy in <strings.h> rather than
+    memset/memcpy in <string.h>. */
+-#cmakedefine NEED_BSD_STRINGS
++#cmakedefine NEED_BSD_STRINGS 1
+ 
+ /* Define to 1 if the system has the type `unsigned char'. */
+-#cmakedefine HAVE_UNSIGNED_CHAR
++#cmakedefine HAVE_UNSIGNED_CHAR 1
+ 
+ /* Define to 1 if the system has the type `unsigned short'. */
+-#cmakedefine HAVE_UNSIGNED_SHORT
++#cmakedefine HAVE_UNSIGNED_SHORT 1
+ 
+ /* Compiler does not support pointers to undefined structures. */
+-#cmakedefine INCOMPLETE_TYPES_BROKEN
++#cmakedefine INCOMPLETE_TYPES_BROKEN 1
+ 
+ /* Define if your (broken) compiler shifts signed values as if they were
+    unsigned. */
+-#cmakedefine RIGHT_SHIFT_IS_UNSIGNED
++#cmakedefine RIGHT_SHIFT_IS_UNSIGNED 1
+ 
+ /* Define to 1 if type `char' is unsigned and you are not using gcc.  */
+ #ifndef __CHAR_UNSIGNED__
+-  #cmakedefine __CHAR_UNSIGNED__
++  #cmakedefine __CHAR_UNSIGNED__ 1
+ #endif
+ 
+ /* Define to empty if `const' does not conform to ANSI C. */
+diff --git a/jdcolor.c b/jdcolor.c
+index fd7f661d..dc0e3b6c 100644
+--- a/jdcolor.c
++++ b/jdcolor.c
+@@ -592,7 +592,7 @@ ycck_cmyk_convert(j_decompress_ptr cinfo, JSAMPIMAGE input_buf,
+ /* Declarations for ordered dithering
+  *
+  * We use a 4x4 ordered dither array packed into 32 bits.  This array is
+- * sufficent for dithering RGB888 to RGB565.
++ * sufficient for dithering RGB888 to RGB565.
+  */
+ 
+ #define DITHER_MASK       0x3
+diff --git a/jdmerge.c b/jdmerge.c
+index d67faec0..b3fec04f 100644
+--- a/jdmerge.c
++++ b/jdmerge.c
+@@ -448,7 +448,7 @@ h2v2_merged_upsample(j_decompress_ptr cinfo, JSAMPIMAGE input_buf,
+ /* Declarations for ordered dithering
+  *
+  * We use a 4x4 ordered dither array packed into 32 bits.  This array is
+- * sufficent for dithering RGB888 to RGB565.
++ * sufficient for dithering RGB888 to RGB565.
+  */
+ 
+ #define DITHER_MASK       0x3
+diff --git a/jquant1.c b/jquant1.c
+index a336abdb..40bbb28c 100644
+--- a/jquant1.c
++++ b/jquant1.c
+@@ -154,7 +154,7 @@ typedef struct {
+    */
+   boolean is_padded;            /* is the colorindex padded for odither? */
+ 
+-  int Ncolors[MAX_Q_COMPS];     /* # of values alloced to each component */
++  int Ncolors[MAX_Q_COMPS];     /* # of values allocated to each component */
+ 
+   /* Variables for ordered dithering */
+   int row_index;                /* cur row's vertical index in dither matrix */
+diff --git a/rdtarga.c b/rdtarga.c
+index e0c6947b..37bd286a 100644
+--- a/rdtarga.c
++++ b/rdtarga.c
+@@ -3,8 +3,9 @@
+  *
+  * This file was part of the Independent JPEG Group's software:
+  * Copyright (C) 1991-1996, Thomas G. Lane.
+- * It was modified by The libjpeg-turbo Project to include only code relevant
+- * to libjpeg-turbo.
++ * Modified 2017 by Guido Vollbeding.
++ * libjpeg-turbo Modifications:
++ * Copyright (C) 2018, D. R. Commander.
+  * For conditions of distribution and use, see the accompanying README.ijg
+  * file.
+  *
+@@ -66,6 +67,7 @@ typedef struct _tga_source_struct {
+   U_CHAR tga_pixel[4];
+ 
+   int pixel_size;               /* Bytes per Targa pixel (1 to 4) */
++  int cmap_length;              /* colormap length */
+ 
+   /* State info for reading RLE-coded pixels; both counts must be init to 0 */
+   int block_count;              /* # of pixels remaining in RLE block */
+@@ -196,11 +198,14 @@ get_8bit_row(j_compress_ptr cinfo, cjpeg_source_ptr sinfo)
+   register JSAMPROW ptr;
+   register JDIMENSION col;
+   register JSAMPARRAY colormap = source->colormap;
++  int cmaplen = source->cmap_length;
+ 
+   ptr = source->pub.buffer[0];
+   for (col = cinfo->image_width; col > 0; col--) {
+     (*source->read_pixel) (source); /* Load next pixel into tga_pixel */
+     t = UCH(source->tga_pixel[0]);
++    if (t >= cmaplen)
++      ERREXIT(cinfo, JERR_TGA_BADPARMS);
+     *ptr++ = colormap[0][t];
+     *ptr++ = colormap[1][t];
+     *ptr++ = colormap[2][t];
+@@ -452,12 +457,14 @@ start_input_tga(j_compress_ptr cinfo, cjpeg_source_ptr sinfo)
+     /* Allocate space to store the colormap */
+     source->colormap = (*cinfo->mem->alloc_sarray)
+       ((j_common_ptr)cinfo, JPOOL_IMAGE, (JDIMENSION)maplen, (JDIMENSION)3);
++    source->cmap_length = (int)maplen;
+     /* and read it from the file */
+     read_colormap(source, (int)maplen, UCH(targaheader[7]));
+   } else {
+     if (cmaptype)               /* but you promised a cmap! */
+       ERREXIT(cinfo, JERR_TGA_BADPARMS);
+     source->colormap = NULL;
++    source->cmap_length = 0;
+   }
+ 
+   cinfo->input_components = components;
+diff --git a/release/installer.nsi.in b/release/installer.nsi.in
+index 00cd5f87..44419fa8 100755
+--- a/release/installer.nsi.in
++++ b/release/installer.nsi.in
+@@ -62,15 +62,15 @@ Section "@CMAKE_PROJECT_NAME@ SDK for @INST_PLATFORM@ (required)"
+ 	File "@CMAKE_CURRENT_BINARY_DIR@\libturbojpeg.a"
+ 	File "@CMAKE_CURRENT_BINARY_DIR@\libjpeg.dll.a"
+ 	File "@CMAKE_CURRENT_BINARY_DIR@\libjpeg.a"
+-	SetOutPath $INSTDIR\lib\pkgconfig
+-	File "@CMAKE_CURRENT_BINARY_DIR@\pkgscripts\libjpeg.pc"
+-	File "@CMAKE_CURRENT_BINARY_DIR@\pkgscripts\libturbojpeg.pc"
+ !else
+ 	File "@CMAKE_CURRENT_BINARY_DIR@\${BUILDDIR}turbojpeg.lib"
+ 	File "@CMAKE_CURRENT_BINARY_DIR@\${BUILDDIR}turbojpeg-static.lib"
+ 	File "@CMAKE_CURRENT_BINARY_DIR@\${BUILDDIR}jpeg.lib"
+ 	File "@CMAKE_CURRENT_BINARY_DIR@\${BUILDDIR}jpeg-static.lib"
+ !endif
++	SetOutPath $INSTDIR\lib\pkgconfig
++	File "@CMAKE_CURRENT_BINARY_DIR@\pkgscripts\libjpeg.pc"
++	File "@CMAKE_CURRENT_BINARY_DIR@\pkgscripts\libturbojpeg.pc"
+ !ifdef JAVA
+ 	SetOutPath $INSTDIR\classes
+ 	File "@CMAKE_CURRENT_BINARY_DIR@\java\turbojpeg.jar"
+@@ -130,8 +130,6 @@ Section "Uninstall"
+ 	Delete $INSTDIR\lib\libturbojpeg.a
+ 	Delete $INSTDIR\lib\libjpeg.dll.a
+ 	Delete $INSTDIR\lib\libjpeg.a
+-	Delete $INSTDIR\lib\pkgconfig\libjpeg.pc
+-	Delete $INSTDIR\lib\pkgconfig\libturbojpeg.pc
+ !else
+ 	Delete $INSTDIR\bin\jpeg@SO_MAJOR_VERSION@.dll
+ 	Delete $INSTDIR\bin\turbojpeg.dll
+@@ -141,6 +139,8 @@ Section "Uninstall"
+ 	Delete $INSTDIR\lib\turbojpeg.lib
+ 	Delete $INSTDIR\lib\turbojpeg-static.lib
+ !endif
++	Delete $INSTDIR\lib\pkgconfig\libjpeg.pc
++	Delete $INSTDIR\lib\pkgconfig\libturbojpeg.pc
+ !ifdef JAVA
+ 	Delete $INSTDIR\classes\turbojpeg.jar
+ !endif
+@@ -175,9 +175,7 @@ Section "Uninstall"
+ !endif
+ 
+ 	RMDir "$INSTDIR\include"
+-!ifdef GCC
+ 	RMDir "$INSTDIR\lib\pkgconfig"
+-!endif
+ 	RMDir "$INSTDIR\lib"
+ 	RMDir "$INSTDIR\doc"
+ !ifdef GCC
+diff --git a/simd/CMakeLists.txt b/simd/CMakeLists.txt
+index 3a4e3c4a..f48a40c6 100755
+--- a/simd/CMakeLists.txt
++++ b/simd/CMakeLists.txt
+@@ -262,7 +262,7 @@ endif()
+ # MIPS (GAS)
+ ###############################################################################
+ 
+-elseif(CPU_TYPE STREQUAL "mips")
++elseif(CPU_TYPE STREQUAL "mips" OR CPU_TYPE STREQUAL "mipsel")
+ 
+ enable_language(ASM)
+ 
+@@ -293,7 +293,7 @@ if(NOT HAVE_DSPR2)
+   return()
+ endif()
+ 
+-add_library(simd OBJECT ${CPU_TYPE}/jsimd_dspr2.S ${CPU_TYPE}/jsimd.c)
++add_library(simd OBJECT mips/jsimd_dspr2.S mips/jsimd.c)
+ 
+ if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
+   set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
+diff --git a/simd/arm64/jsimd_neon.S b/simd/arm64/jsimd_neon.S
+index 218e1ae7..93472efc 100644
+--- a/simd/arm64/jsimd_neon.S
++++ b/simd/arm64/jsimd_neon.S
+@@ -63,7 +63,7 @@ _\fname:
+     trn2            \x1\literal, \xi\literal, \x1\literal
+ .endm
+ 
+-/* Transpose elements of 2 differnet registers */
++/* Transpose elements of 2 different registers */
+ .macro transpose x0, x1, xi, xilen, literal
+     mov             \xi\xilen, \x0\xilen
+     trn1            \x0\literal, \x0\literal, \x1\literal
+diff --git a/simd/i386/jsimdcpu.asm b/simd/i386/jsimdcpu.asm
+index 50a0d516..faddd389 100644
+--- a/simd/i386/jsimdcpu.asm
++++ b/simd/i386/jsimdcpu.asm
+@@ -94,9 +94,10 @@ EXTN(jpeg_simd_cpu_support):
+ 
+     xor         ecx, ecx
+     xgetbv
+-    test        eax, 6                  ; O/S does not manage XMM/YMM state
++    and         eax, 6
++    cmp         eax, 6                  ; O/S does not manage XMM/YMM state
+                                         ; using XSAVE
+-    jz          short .no_avx2
++    jnz         short .no_avx2
+ 
+     or          edi, JSIMD_AVX2
+ .no_avx2:
+diff --git a/simd/mips/jsimd.c b/simd/mips/jsimd.c
+index af886f60..454cc99c 100644
+--- a/simd/mips/jsimd.c
++++ b/simd/mips/jsimd.c
+@@ -692,8 +692,10 @@ jsimd_can_convsamp_float(void)
+   if (sizeof(ISLOW_MULT_TYPE) != 2)
+     return 0;
+ 
++#ifndef __mips_soft_float
+   if (simd_support & JSIMD_DSPR2)
+     return 1;
++#endif
+ 
+   return 0;
+ }
+@@ -709,7 +711,9 @@ GLOBAL(void)
+ jsimd_convsamp_float(JSAMPARRAY sample_data, JDIMENSION start_col,
+                      FAST_FLOAT *workspace)
+ {
++#ifndef __mips_soft_float
+   jsimd_convsamp_float_dspr2(sample_data, start_col, workspace);
++#endif
+ }
+ 
+ GLOBAL(int)
+@@ -805,8 +809,10 @@ jsimd_can_quantize_float(void)
+   if (sizeof(ISLOW_MULT_TYPE) != 2)
+     return 0;
+ 
++#ifndef __mips_soft_float
+   if (simd_support & JSIMD_DSPR2)
+     return 1;
++#endif
+ 
+   return 0;
+ }
+@@ -821,7 +827,9 @@ GLOBAL(void)
+ jsimd_quantize_float(JCOEFPTR coef_block, FAST_FLOAT *divisors,
+                      FAST_FLOAT *workspace)
+ {
++#ifndef __mips_soft_float
+   jsimd_quantize_float_dspr2(coef_block, divisors, workspace);
++#endif
+ }
+ 
+ GLOBAL(int)
+diff --git a/simd/mips/jsimd_dspr2.S b/simd/mips/jsimd_dspr2.S
+index 2ec543e2..a28c1161 100644
+--- a/simd/mips/jsimd_dspr2.S
++++ b/simd/mips/jsimd_dspr2.S
+@@ -2810,6 +2810,8 @@ LEAF_DSPR2(jsimd_quantize_dspr2)
+ END(jsimd_quantize_dspr2)
+ 
+ 
++#ifndef __mips_soft_float
++
+ /*****************************************************************************/
+ LEAF_DSPR2(jsimd_quantize_float_dspr2)
+ /*
+@@ -2890,6 +2892,8 @@ LEAF_DSPR2(jsimd_quantize_float_dspr2)
+ 
+ END(jsimd_quantize_float_dspr2)
+ 
++#endif
++
+ 
+ /*****************************************************************************/
+ LEAF_DSPR2(jsimd_idct_2x2_dspr2)
+@@ -4110,6 +4114,8 @@ LEAF_DSPR2(jsimd_convsamp_dspr2)
+ END(jsimd_convsamp_dspr2)
+ 
+ 
++#ifndef __mips_soft_float
++
+ /*****************************************************************************/
+ LEAF_DSPR2(jsimd_convsamp_float_dspr2)
+ /*
+@@ -4468,4 +4474,6 @@ LEAF_DSPR2(jsimd_convsamp_float_dspr2)
+ 
+ END(jsimd_convsamp_float_dspr2)
+ 
++#endif
++
+ /*****************************************************************************/
+diff --git a/simd/x86_64/jsimdcpu.asm b/simd/x86_64/jsimdcpu.asm
+index 42979bef..38e1a7b9 100644
+--- a/simd/x86_64/jsimdcpu.asm
++++ b/simd/x86_64/jsimdcpu.asm
+@@ -60,9 +60,10 @@ EXTN(jpeg_simd_cpu_support):
+ 
+     xor         rcx, rcx
+     xgetbv
+-    test        rax, 6                  ; O/S does not manage XMM/YMM state
++    and         rax, 6
++    cmp         rax, 6                  ; O/S does not manage XMM/YMM state
+                                         ; using XSAVE
+-    jz          short .return
++    jnz         short .return
+ 
+     or          rdi, JSIMD_AVX2
+ 
+diff --git a/tjbench.c b/tjbench.c
+index 9ab0ea2a..863e534f 100644
+--- a/tjbench.c
++++ b/tjbench.c
+@@ -60,8 +60,8 @@ int tjErrorLine = -1, tjErrorCode = -1;
+     if (strncmp(tjErrorStr, _tjErrorStr, JMSG_LENGTH_MAX) || \
+         strncmp(tjErrorMsg, m, JMSG_LENGTH_MAX) || \
+         tjErrorCode != _tjErrorCode || tjErrorLine != __LINE__) { \
+-      strncpy(tjErrorStr, _tjErrorStr, JMSG_LENGTH_MAX); \
+-      strncpy(tjErrorMsg, m, JMSG_LENGTH_MAX); \
++      strncpy(tjErrorStr, _tjErrorStr, JMSG_LENGTH_MAX - 1); \
++      strncpy(tjErrorMsg, m, JMSG_LENGTH_MAX - 1); \
+       tjErrorCode = _tjErrorCode; \
+       tjErrorLine = __LINE__; \
+       printf("WARNING in line %d while %s:\n%s\n", __LINE__, m, _tjErrorStr); \
+diff --git a/turbojpeg-jni.c b/turbojpeg-jni.c
+index d0ca37d9..d0a0935b 100644
+--- a/turbojpeg-jni.c
++++ b/turbojpeg-jni.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C)2011-2017 D. R. Commander.  All Rights Reserved.
++ * Copyright (C)2011-2018 D. R. Commander.  All Rights Reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+  * modification, are permitted provided that the following conditions are met:
+@@ -235,11 +235,11 @@ static jint TJCompressor_compress
+   if ((*env)->GetArrayLength(env, dst) < (jsize)jpegSize)
+     _throwarg("Destination buffer is not large enough");
+ 
++  if (ProcessSystemProperties(env) < 0) goto bailout;
++
+   bailif0(srcBuf = (*env)->GetPrimitiveArrayCritical(env, src, 0));
+   bailif0(jpegBuf = (*env)->GetPrimitiveArrayCritical(env, dst, 0));
+ 
+-  if (ProcessSystemProperties(env) < 0) goto bailout;
+-
+   if (tjCompress2(handle, &srcBuf[y * actualPitch + x * tjPixelSize[pf]],
+                   width, pitch, height, pf, &jpegBuf, &jpegSize, jpegSubsamp,
+                   jpegQual, flags | TJFLAG_NOREALLOC) == -1)
+@@ -341,6 +341,8 @@ JNIEXPORT jint JNICALL Java_org_libjpegturbo_turbojpeg_TJCompressor_compressFrom
+   if ((*env)->GetArrayLength(env, dst) < (jsize)jpegSize)
+     _throwarg("Destination buffer is not large enough");
+ 
++  if (ProcessSystemProperties(env) < 0) goto bailout;
++
+   bailif0(srcOffsets = (*env)->GetPrimitiveArrayCritical(env, jSrcOffsets, 0));
+   bailif0(srcStrides = (*env)->GetPrimitiveArrayCritical(env, jSrcStrides, 0));
+   for (i = 0; i < nc; i++) {
+@@ -365,8 +367,6 @@ JNIEXPORT jint JNICALL Java_org_libjpegturbo_turbojpeg_TJCompressor_compressFrom
+   }
+   bailif0(jpegBuf = (*env)->GetPrimitiveArrayCritical(env, dst, 0));
+ 
+-  if (ProcessSystemProperties(env) < 0) goto bailout;
+-
+   if (tjCompressFromYUVPlanes(handle, srcPlanes, width, srcStrides, height,
+                               subsamp, &jpegBuf, &jpegSize, jpegQual,
+                               flags | TJFLAG_NOREALLOC) == -1)
+diff --git a/wrjpgcom.c b/wrjpgcom.c
+index faf77b41..8a4e7416 100644
+--- a/wrjpgcom.c
++++ b/wrjpgcom.c
+@@ -580,7 +580,7 @@ main(int argc, char **argv)
+     }
+   }
+   /* Duplicate the remainder of the source file.
+-   * Note that any COM markers occuring after SOF will not be touched.
++   * Note that any COM markers occurring after SOF will not be touched.
+    */
+   write_marker(marker);
+   copy_rest_of_file();

@@ -1,0 +1,13 @@
+diff -up mozjpeg-3.3.2-20181202/CMakeLists.txt.omv~ mozjpeg-3.3.2-20181202/CMakeLists.txt
+--- mozjpeg-3.3.2-20181202/CMakeLists.txt.omv~	2018-12-02 16:21:49.525854546 +0100
++++ mozjpeg-3.3.2-20181202/CMakeLists.txt	2018-12-02 16:22:44.752911880 +0100
+@@ -592,6 +592,9 @@ if(WITH_TURBOJPEG)
+       set_target_properties(turbojpeg PROPERTIES
+         LINK_FLAGS "${TJMAPFLAG}${TJMAPFILE}")
+     endif()
++    if(UNIX)
++      target_link_libraries(turbojpeg m)
++    endif()
+ 
+     add_executable(tjunittest tjunittest.c tjutil.c md5/md5.c md5/md5hl.c)
+     target_link_libraries(tjunittest turbojpeg)
