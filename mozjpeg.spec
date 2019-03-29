@@ -19,7 +19,7 @@ Version:	3.3.2
 Release:	0.%{beta}.1
 Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
 %else
-Release:	1
+Release:	2
 Source0:	https://github.com/mozilla/mozjpeg/archive/%{name}-%{version}.tar.gz
 %endif
 License:	wxWidgets Library License
@@ -141,7 +141,7 @@ cp %{SOURCE2} jpegexiforient.c
 cp %{SOURCE3} exifautotran
 
 %build
-%global optflags %{optflags} -Ofast -funroll-loops
+%global optflags %{optflags} -O3 -funroll-loops
 
 mkdir -p jpeg8
 pushd jpeg8
