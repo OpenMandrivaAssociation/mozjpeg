@@ -10,16 +10,22 @@
 %define libname62 %mklibname jpeg %{major62}
 
 %bcond_without java
+%ifarch %{riscv}
+%bcond_with pgo
+%else
+# Disable PGO when not using clang and/or when
+# bootstrapping (avoids a few dependencies)
+%bcond_without pgo
+%endif
 
 Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
-Epoch:		1
 Version:	3.3.2
 %if "%{beta}" != ""
-Release:	0.%{beta}.1
+Release:	0.%{beta}.2
 Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
 %else
-Release:	2
+Release:	1
 Source0:	https://github.com/mozilla/mozjpeg/archive/%{name}-%{version}.tar.gz
 %endif
 License:	wxWidgets Library License
@@ -41,6 +47,11 @@ BuildRequires:	java-devel
 %endif
 %ifarch %{ix86} %{x86_64}
 BuildRequires:	nasm
+%endif
+%if %{with pgo}
+# Pull in some JPEG files so we can generate PGO data
+BuildRequires:	desktop-common-data
+BuildRequires:	plasma-workspace-wallpapers
 %endif
 
 %description
@@ -143,28 +154,61 @@ cp %{SOURCE3} exifautotran
 %build
 %global optflags %{optflags} -O3 -funroll-loops
 
-mkdir -p jpeg8
-pushd jpeg8
-%cmake \
+buildit() {
+	NAME="$1"
+	shift
+
+%if %{with pgo}
+	export LLVM_PROFILE_FILE=code-%p.profclangr
+	mkdir -p "$NAME-pgo"
+	cd "$NAME-pgo"
+	CFLAGS="%{optflags} -fprofile-instr-generate" \
+	CXXFLAGS="%{optflags} -fprofile-instr-generate" \
+	LDFLAGS="%{ldflags} -fprofile-instr-generate" \
+	%cmake "$@" \
+		-G Ninja \
+		../..
+	%ninja_build
+	cd ..
+	find /usr/share/wallpapers -iname "*.jpg" |while read r; do
+		# default."jpg" is actually a symlink to default.png, let's not freak out...
+		echo $r |grep -q default.jpg && continue
+		LD_LIBRARY_PATH="`pwd`/build" ./build/djpeg -dct int $r >testimage.pnm
+		LD_LIBRARY_PATH="`pwd`/build" ./build/djpeg -dct fast $r >testimage.pnm
+		LD_LIBRARY_PATH="`pwd`/build" ./build/cjpeg testimage.pnm >testimage.jpg
+		LD_LIBRARY_PATH="`pwd`/build" ./build/cjpeg -optimize testimage.pnm >testimage.jpg
+		LD_LIBRARY_PATH="`pwd`/build" ./build/cjpeg -progressive testimage.pnm >testimage.jpg
+		rm -f testimage.pnm testimage.jpg
+	done
+	llvm-profdata merge --output=code.profclangd *.profclangr
+	PROFDATA="$(realpath code.profclangd)"
+	cd ..
+%endif
+
+	mkdir -p "$NAME"
+	cd "$NAME"
+%if %{with pgo}
+	CFLAGS="%{optflags} -fprofile-instr-use=$(realpath $PROFDATA)" \
+	CXXFLAGS="%{optflags} -fprofile-instr-use=$(realpath $PROFDATA)" \
+	LDFLAGS="%{optflags} -fprofile-instr-use=$(realpath $PROFDATA)" \
+%endif
+	%cmake "$@" \
+		-G Ninja \
+		../..
+	%ninja_build
+	cd ../..
+}
+
+buildit jpeg8 \
 %if %{with java}
 	-DWITH_JAVA:BOOL=ON \
 %endif
 	-DWITH_JPEG7:BOOL=ON \
-	-DWITH_JPEG8:BOOL=ON \
-	-G Ninja \
-	../..
-%ninja_build
-popd
+	-DWITH_JPEG8:BOOL=ON
 
-mkdir -p jpeg62
-pushd jpeg62
-%cmake \
+buildit jpeg62 \
 	-DWITH_JPEG7:BOOL=OFF \
-	-DWITH_JPEG8:BOOL=OFF \
-	-G Ninja \
-	../..
-%ninja_build
-popd
+	-DWITH_JPEG8:BOOL=OFF
 
 %{__cc} %{optflags} %{ldflags} -o jpegexiforient jpegexiforient.c
 
