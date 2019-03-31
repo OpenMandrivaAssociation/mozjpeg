@@ -51,7 +51,26 @@ BuildRequires:	nasm
 %if %{with pgo}
 # Pull in some JPEG files so we can generate PGO data
 BuildRequires:	desktop-common-data
-BuildRequires:	plasma-workspace-wallpapers
+BuildRequires:	breeze
+BuildRequires:	distro-theme-common
+BuildRequires:	plasma-workspace-wallpapers-autumn
+BuildRequires:	plasma-workspace-wallpapers-bythewater
+BuildRequires:	plasma-workspace-wallpapers-canopee
+BuildRequires:	plasma-workspace-wallpapers-cascade
+BuildRequires:	plasma-workspace-wallpapers-coldripple
+BuildRequires:	plasma-workspace-wallpapers-colorfulcups
+BuildRequires:	plasma-workspace-wallpapers-darkesthour
+BuildRequires:	plasma-workspace-wallpapers-eveningglow
+BuildRequires:	plasma-workspace-wallpapers-fallenleaf
+BuildRequires:	plasma-workspace-wallpapers-flyingkonqui
+BuildRequires:	plasma-workspace-wallpapers-grey
+BuildRequires:	plasma-workspace-wallpapers-kite
+BuildRequires:	plasma-workspace-wallpapers-kokkini
+BuildRequires:	plasma-workspace-wallpapers-onestandsout
+BuildRequires:	plasma-workspace-wallpapers-opal
+BuildRequires:	plasma-workspace-wallpapers-pastelhills
+BuildRequires:	plasma-workspace-wallpapers-path
+BuildRequires:	plasma-workspace-wallpapers-summer_1am
 %endif
 
 %description
