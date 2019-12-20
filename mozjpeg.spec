@@ -43,7 +43,7 @@ Patch2:		mozjpeg-libm-linkage.patch
 BuildRequires:	pkgconfig(libpng)
 BuildRequires:	cmake ninja
 %if %{with java}
-BuildRequires:	java-devel
+BuildRequires:	jdk-current java-gui-current
 %endif
 %ifarch %{ix86} %{x86_64}
 BuildRequires:	nasm
@@ -172,6 +172,8 @@ cp %{SOURCE3} exifautotran
 
 %build
 %global optflags %{optflags} -O3 -funroll-loops
+
+. %{_sysconfdir}/profile.d/90java.sh
 
 buildit() {
 	NAME="$1"
