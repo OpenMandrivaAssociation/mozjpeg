@@ -4,7 +4,7 @@
 %define devname %mklibname -d jpeg
 %define static %mklibname -s -d jpeg
 %define turbo %mklibname turbojpeg %{majorturbo}
-%define beta 20181202
+#define beta 20181202
 
 %define major62 62
 %define libname62 %mklibname jpeg %{major62}
