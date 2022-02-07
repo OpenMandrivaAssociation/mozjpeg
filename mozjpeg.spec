@@ -4,7 +4,6 @@
 %define devname %mklibname -d jpeg
 %define static %mklibname -s -d jpeg
 %define turbo %mklibname turbojpeg %{majorturbo}
-#define beta 20181202
 
 %define major62 62
 %define libname62 %mklibname jpeg %{major62}
@@ -21,13 +20,8 @@
 Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
 Version:	4.0.3
-%if "%{beta}" != ""
-Release:	0.%{beta}.2
-Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
-%else
 Release:	1
 Source0:	https://github.com/mozilla/mozjpeg/archive/%{name}-%{version}.tar.gz
-%endif
 License:	wxWidgets Library License
 Group:		System/Libraries
 Url:		https://github.com/mozilla/mozjpeg
@@ -162,11 +156,7 @@ Group: Development/Java
 Java bindings to the turbojpeg library
 
 %prep
-%if "%{beta}" != ""
-%autosetup -p1 -n %{name}-%{version}-%{beta}
-%else
 %autosetup -p1
-%endif
 cp %{SOURCE2} jpegexiforient.c
 cp %{SOURCE3} exifautotran
 
