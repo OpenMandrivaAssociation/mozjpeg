@@ -31,9 +31,9 @@ Url:		https://github.com/mozilla/mozjpeg
 # applying these programs again.
 Source2:	http://jpegclub.org/jpegexiforient.c
 Source3:	http://jpegclub.org/exifautotran.txt
-Patch0:		jpeg-6b-c++fixes.patch
-Patch1:		merge-libjpeg-turbo-2.0.1.patch
-Patch2:		mozjpeg-libm-linkage.patch
+#Patch0:		jpeg-6b-c++fixes.patch
+#Patch1:		merge-libjpeg-turbo-2.0.1.patch
+#Patch2:		mozjpeg-libm-linkage.patch
 BuildRequires:	pkgconfig(libpng)
 BuildRequires:	cmake ninja
 %if %{with java}
