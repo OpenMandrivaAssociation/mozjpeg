@@ -20,9 +20,9 @@
 
 Summary:	A MMX/SSE2 accelerated library for manipulating JPEG image files
 Name:		mozjpeg
-Version:	3.3.2
+Version:	4.1.5
 %if "%{beta}" != ""
-Release:	0.%{beta}.2
+Release:	1.%{beta}.2
 Source0:	https://github.com/mozilla/mozjpeg/archive/v%{version}-%{beta}.tar.gz
 %else
 Release:	1
@@ -162,8 +162,10 @@ Group: Development/Java
 Java bindings to the turbojpeg library
 
 %prep
+# Upstream tarball (GitHub archive of tag v%{version}) unpacks as %{name}-%{version}
+# even when Source0 is named with a packaging beta suffix.
 %if "%{beta}" != ""
-%autosetup -p1 -n %{name}-%{version}-%{beta}
+%autosetup -p1 -n %{name}-%{version}
 %else
 %autosetup -p1
 %endif

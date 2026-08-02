@@ -1,2 +1,4 @@
 sources:
-  v3.3.2-20181202.tar.gz: 632510208c3783aaf957fde0d547b20be3773748
+  exifautotran.txt: 8c3295b4d377b62d934d2b2412d22b76b3d92895
+  jpegexiforient.c: f20fc1abb30b6323111ffd5ddb63fff10c2abf89
+  v4.1.5-20181202.tar.gz: 7af9ed3589dd4de42adccd89c95328a98e8592fb
